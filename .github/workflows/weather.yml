@@ -1,7 +1,7 @@
 name: Push Weather to FROST
 on:
   schedule:
-    - cron: '* * * * *'
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 jobs:
   push:
