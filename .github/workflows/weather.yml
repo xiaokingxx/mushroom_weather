@@ -1,0 +1,33 @@
+name: Push Weather to FROST
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install jq
+      run: sudo apt-get update && sudo apt-get install -y jq
+    - name: Fetch current weather
+      id: fetch
+      run: |
+        curl -s "https://api.weatherapi.com/v1/current.json?key=${{ secrets.WEATHER_API_KEY }}&q=Munich" \
+          > weather.json
+        echo "temp=$(jq .current.temp_c weather.json)" >> $GITHUB_OUTPUT
+        echo "hum=$(jq .current.humidity weather.json)" >> $GITHUB_OUTPUT
+    - name: Push temperature
+      run: |
+        TS=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+        curl -s -o /dev/null -w "%{http_code}\n" \
+          -X POST "${{ secrets.FROST_BASE }}/Datastreams(1665)/Observations" \
+          -H "Content-Type:application/json" \
+          -d "{\"result\":${{ steps.fetch.outputs.temp }},\"phenomenonTime\":\"$TS\",\"resultTime\":\"$TS\",\"FeatureOfInterest\":{\"@iot.id\":370574}}"
+    - name: Push humidity
+      run: |
+        TS=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+        curl -s -o /dev/null -w "%{http_code}\n" \
+          -X POST "${{ secrets.FROST_BASE }}/Datastreams(1666)/Observations" \
+          -H "Content-Type:application/json" \
+          -d "{\"result\":${{ steps.fetch.outputs.hum }},\"phenomenonTime\":\"$TS\",\"resultTime\":\"$TS\",\"FeatureOfInterest\":{\"@iot.id\":370574}}"
